@@ -32,7 +32,7 @@ static int newupvalues(FuncState *fs, expdesc *e, TString *n)
     }
 
     p->upvalues[fs->nups].idx = e->u.info;
-    p->upvalues[fs->nups].in_stack = e->k = VLOCAL;
+    p->upvalues[fs->nups].in_stack = VLOCAL == e->k;
     p->upvalues[fs->nups].name = n;
 
     return fs->nups++;
