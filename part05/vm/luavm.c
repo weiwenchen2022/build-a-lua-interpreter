@@ -5,6 +5,7 @@
 #include "luaopcodes.h"
 #include "luafunc.h"
 
+// slot == NULL意味着t不是table类型
 void luaV_finishget(struct lua_State *L, struct Table *t, StkId val, const TValue *slot)
 {
     if (slot == NULL)
@@ -94,7 +95,8 @@ static inline void op_gettabup(struct lua_State *L, LClosure *cl, StkId ra, Inst
 	TValue *value = (TValue *)luaH_get(L, t, key);
 	setobj(ra, value);
     } else {
-	TValue *value = L->ci->l.base + arg_c;
+	TValue *key = L->ci->l.base + arg_c;
+	TValue *value = (TValue *)luaH_get(L, t, key);
 	setobj(ra, value);
     }
 }
@@ -174,10 +176,77 @@ static bool vmexecute(struct lua_State *L, StkId ra, Instruction i)
     return is_loop;
 }
 
+static void print_TValue(const TValue* v) {
+    switch (v->tt_) {
+    case LUA_NUMINT:
+	printf("%ld ", v->value_.i);
+	break;
+
+    case LUA_NUMFLT:
+	printf("%.14g ", v->value_.n);
+	break;
+
+    case LUA_SHRSTR: case LUA_LNGSTR: {
+	TString* ts = gco2ts(gcvalue(v));
+	printf("%s ", getstr(ts));
+    }
+	break;
+
+    case LUA_TBOOLEAN:
+	printf("%s ", v->value_.b ? "true" : "false");
+	break;
+
+    default:
+	break;
+    }
+}
+
+static char *code2name[NUM_OPCODES] = {
+	"OP_MOVE",
+	"OP_LOADK",
+	"OP_GETUPVAL",
+	"OP_CALL",
+	"OP_RETURN",
+	"OP_GETTABUP",
+	"OP_GETTABLE",
+};
+
+static void print_Instruction(int idx, Instruction i)
+{
+    switch (luaP_opmodes[GET_OPCODE(i)] & 0x03) {
+    case iABC:
+	printf("[%d] opcode(%s) ra(%d) rb(%d) rc(%d)\n",
+	    idx, code2name[GET_OPCODE(i)], GET_ARG_A(i), GET_ARG_B(i), GET_ARG_C(i));
+	break;
+
+    case iABx:
+	printf("[%d] opcode(%s) ra(%d) bx(%d)\n",
+	    idx, code2name[GET_OPCODE(i)], GET_ARG_A(i), GET_ARG_Bx(i));
+	break;
+
+    default: break;
+    }
+}
+
 static void newframe(struct lua_State *L)
 {
-    bool is_loop = true;
+    // print table k
+    struct GCObject *gco = gcvalue(L->ci->func);
+    LClosure *cl = gco2lclosure(gco);
 
+    fputs("k:", stdout);
+    for (int i = 0; i < cl->p->sizek; i++)
+	print_TValue(&cl->p->k[i]);
+    fputs("\n", stdout);
+
+    for (int i = 0; i < cl->p->sizecode; i++) {
+	print_Instruction(i, cl->p->code[i]);
+	if (OP_RETURN == GET_OPCODE(cl->p->code[i]))
+	    break;
+    }
+    fputs("\n", stdout);
+
+    bool is_loop = true;
     while (is_loop) {
 	Instruction i = vmfetch(L);
 	StkId ra = vmdecode(L, i);

@@ -1,12 +1,12 @@
 #include "luacode.h"
 #include "../common/luaobject.h"
 #include "../common/luastate.h"
-#include "../common/luatable.h"
-#include "../common/luastring.h"
-#include "../common/luamem.h"
 #include "../vm/luagc.h"
+#include "../common/luatable.h"
 #include "../vm/luavm.h"
+#include "../common/luamem.h"
 #include "../vm/luaopcodes.h"
+#include "../common/luastring.h"
 
 #define MAININDEX 255
 
@@ -15,6 +15,7 @@ static int addk(FuncState *fs, TValue *v)
     LexState *ls = fs->ls;
     Proto *p = fs->p;
     TValue *idx = luaH_set(ls->L, ls->h, v);
+
     if (!ttisnil(idx)) {
 	int k = idx->value_.i;
 	if (k < fs->nk && luaV_eqobject(ls->L, v, &p->k[k]))
@@ -42,6 +43,7 @@ int luaK_exp2RK(FuncState *fs, expdesc *e)
 	e->k = VK;
 	if (e->u.info <= MAININDEX)
 	    return RKMASK(e->u.info);
+
 	break;
 
     default:
@@ -97,7 +99,7 @@ void luaK_indexed(FuncState *fs, expdesc *e, expdesc *key)
 {
     e->u.ind.t = e->u.info;
     e->u.ind.idx = luaK_exp2RK(fs, key);
-    e->u.ind.vt = e->k == VLOCAL ? VLOCAL : VUPVAL;
+    e->u.ind.vt = VLOCAL == e->k ? VLOCAL : VUPVAL;
     e->k = VINDEXED;
 }
 
@@ -115,6 +117,7 @@ int luaK_codeABx(FuncState *fs, int opcode, int a, int bx)
     luaM_growvector(fs->ls->L, fs->p->code, fs->pc, fs->p->sizecode, Instruction, INT_MAX);
     Instruction i = (bx << POS_C) | (a << POS_A) | opcode;
     fs->p->code[fs->pc] = i;
+
     return fs->pc++;
 }
 
@@ -144,7 +147,7 @@ void luaK_dischargevars(FuncState *fs, expdesc *e)
     }
 }
 
-static inline void freereg(FuncState *fs, int reg)
+static void freereg(FuncState *fs, int reg)
 {
     if (!ISK(reg) && reg > fs->nactvars) {
 	fs->freereg--;
@@ -152,25 +155,25 @@ static inline void freereg(FuncState *fs, int reg)
     }
 }
 
-static inline void free_exp(FuncState *fs, expdesc *e)
+static void free_exp(FuncState *fs, expdesc *e)
 {
     if (VNONRELOC == e->k)
 	freereg(fs, e->u.info);
 }
 
-static inline void checkstack(FuncState *fs, int n)
+static void checkstack(FuncState *fs, int n)
 {
     if (fs->p->maxstacksize < fs->freereg + n)
 	fs->p->maxstacksize = fs->freereg + n;
 }
 
-static inline void reserve_reg(FuncState *fs, expdesc *e, int n)
+static void reserve_reg(FuncState *fs, expdesc *e, int n)
 {
     checkstack(fs, n);
     fs->freereg += n;
 }
 
-static inline int exp2reg(FuncState *fs, expdesc *e, int reg)
+static int exp2reg(FuncState *fs, expdesc *e, int reg)
 {
     switch (e->k) {
     case VNIL:
@@ -203,6 +206,7 @@ static inline int exp2reg(FuncState *fs, expdesc *e, int reg)
 
     e->k = VNONRELOC;
     e->u.info = reg;
+
     return e->u.info;
 }
 

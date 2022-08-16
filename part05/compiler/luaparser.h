@@ -2,7 +2,6 @@
 
 #include "../common/luaobject.h"
 #include "../compiler/luazio.h"
-#include "lualexer.h"
 
 typedef enum expkind {
     VVOID, // expression is void
@@ -63,7 +62,5 @@ typedef struct FuncState {
     int np; // the number of protos
     int freereg; // free register index
 } FuncState;
-
-void test_lexer(struct lua_State *L, LexState *ls);
 
 LClosure *luaY_parser(struct lua_State *L, Zio *zio, MBuffer *buffer, Dyndata *dyd, const char *name);

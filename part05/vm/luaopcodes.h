@@ -52,6 +52,7 @@ enum OpCode {
      *	    are return to the calling function
      */
     OP_RETURN,
+
     OP_GETTABUP, // A, B, C; R[A] = Upval[B][RK[C]]
     OP_GETTABLE, // A, B, C; R[A] = R[B][RK[C]]
 

@@ -13,7 +13,7 @@ static void suffixexp(struct lua_State *L, LexState *ls, FuncState *fs, expdesc 
 
 #define eqstr(a, b) ((a) == (b))
 
-static inline void init_exp(expdesc *e, expkind k, int i)
+static void init_exp(expdesc *e, expkind k, int i)
 {
     e->k = k;
     e->u.info = i;
@@ -52,12 +52,13 @@ static void open_func(LexState *ls, FuncState *fs)
     fs->pc = 0;
 }
 
-static inline bool test_token(struct lua_State *L, LexState *ls, int token)
+static bool test_token(struct lua_State *L, LexState *ls, int token)
 {
+    (void)L;
     return ls->t.token == token;
 }
 
-static inline LocVar *getlocvar(FuncState *fs, int n)
+static LocVar *getlocvar(FuncState *fs, int n)
 {
     LexState *ls = fs->ls;
     int idx = ls->dyd->actvar.arr[fs->firstlocal + n];
@@ -69,7 +70,7 @@ static inline LocVar *getlocvar(FuncState *fs, int n)
 static int searchvar(FuncState *fs, TString *name)
 {
     for (int i = fs->nactvars - 1; i >= 0; i--)
-	if eqstr(getlocvar(fs, i)->varname, name)
+	if (eqstr(getlocvar(fs, i)->varname, name))
 	    return i;
 
     return -1;
@@ -78,8 +79,9 @@ static int searchvar(FuncState *fs, TString *name)
 static int searchupvalues(FuncState *fs, expdesc *e, TString *n)
 {
     Proto *p = fs->p;
+
     for (int i = 0; i < fs->nups; i++) {
-	if eqstr(p->upvalues[i].name, n) {
+	if (eqstr(p->upvalues[i].name, n)) {
 	    init_exp(e, VUPVAL, i);
 	    return i;
 	}
@@ -116,7 +118,7 @@ static int singlevaraux(FuncState *fs, expdesc *e, TString *n)
     return reg;
 }
 
-static inline void codestring(FuncState *fs, TString *n, expdesc *e)
+static void codestring(FuncState *fs, TString *n, expdesc *e)
 {
     init_exp(e, VK, luaK_stringK(fs, n));
 }
@@ -244,12 +246,12 @@ static void funcargs(FuncState *fs, expdesc *e)
 static void suffixexp(struct lua_State *L, LexState *ls, FuncState *fs, expdesc *e)
 {
     primaryexp(L, ls, fs, e);
-
     luaX_next(L, ls);
 
     switch (ls->t.token) {
     case '(':
 	luaX_next(L, ls);
+
 	luaK_exp2nextreg(fs, e);
 	funcargs(fs, e);
 	break;
@@ -301,7 +303,7 @@ static void statlist(struct lua_State *L, LexState *ls, FuncState *fs)
 	statement(L, ls, fs);
 }
 
-static inline void close_func(struct lua_State *L, FuncState *fs)
+static void close_func(struct lua_State *L, FuncState *fs)
 {
     luaK_ret(fs, 0, 0);
 }
@@ -319,7 +321,7 @@ static void mainfunc(struct lua_State *L, LexState *ls, FuncState *fs)
     close_func(L, fs);
 }
 
-void test_lexer(struct lua_State *L, LexState *ls)
+static void test_lexer(struct lua_State *L, LexState *ls)
 {
     int token = luaX_next(L, ls);
 

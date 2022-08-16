@@ -3,7 +3,7 @@
 #include "lualexer.h"
 #include "luaparser.h"
 
-#define get_instruction(fs, e) (fs->p->code[e->u.info])
+#define get_instruction(fs, e) ((fs)->p->code[(e)->u.info])
 
 int luaK_exp2RK(FuncState *fs, expdesc *e); // discharge expression to constant table or specific register
 int luaK_stringK(FuncState *fs, TString *key); // generate an expression to index constant in constants vector

@@ -4,8 +4,6 @@
 #include "../common/luaobject.h"
 #include "luazio.h"
 
-// #define FIRST_REVERSED 257
-
 // 1~256 should reserve for ASCII character token
 enum RESERVED {
     FIRST_REVERSED = 257,
@@ -38,8 +36,6 @@ enum RESERVED {
     TK_CONCAT,
     TK_EOS,
 };
-
-// #define NUM_RESERVED (TK_FUNCTION - FIRST_REVERSED + 1)
 
 extern const char *luaX_tokens[NUM_RESERVED];
 
