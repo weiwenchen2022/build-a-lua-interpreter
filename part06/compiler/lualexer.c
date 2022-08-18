@@ -7,11 +7,7 @@
 #include <ctype.h>
 
 #define next(ls) ((ls)->current = zget((ls)->zio))
-#define save_and_next(L, ls, c) do { \
-    save(L, ls, c); \
-    next(ls); \
-} while (0)
-
+#define save_and_next(L, ls, c) do { save(L, ls, c); next(ls); } while (0)
 #define currIsNewLine(ls) ('\n' == ls->current || '\r' == ls->current)
 
 static int llex(LexState *ls, Seminfo *seminfo);
@@ -147,6 +143,7 @@ static int read_string(LexState *ls, int delimiter, Seminfo *seminfo)
 
     save(ls->L, ls, '\0');
     next(ls);
+
     seminfo->s = luaS_newliteral(ls->L, ls->buff->buffer);
     return TK_STRING;
 }

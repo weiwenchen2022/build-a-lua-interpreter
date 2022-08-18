@@ -55,8 +55,9 @@ typedef int (*lua_CFunction)(lua_State *L);
      && (n <= cast(lua_Number, INT_MAX)) \
      && ((*p = cast(lua_Integer, n)), 1)
 
+#define ttisnumber(o) (LUA_TNUMBER == (o)->tt_)
 #define ttisinteger(o) (LUA_NUMINT == (o)->tt_)
-#define ttisnumber(o) (LUA_NUMFLT == (o)->tt_)
+#define ttisfloat(o) (LUA_NUMFLT == (o)->tt_)
 #define ttisshrstr(o) (LUA_SHRSTR == (o)->tt_)
 #define ttislngstr(o) (LUA_LNGSTR == (o)->tt_)
 #define ttisdeadkey(o) (LUA_TDEADKEY == (o)->tt_)
@@ -189,3 +190,4 @@ typedef union Closure {
 } Closure;
 
 int luaO_ceillog2(int value);
+int luaO_arith(struct lua_State *L, int op, TValue *v1, TValue *v2); // the result will store in v1

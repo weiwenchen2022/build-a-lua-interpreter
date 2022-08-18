@@ -9,7 +9,7 @@
 #include "../vm/luaopcodes.h"
 #include "../common/luatable.h"
 
-static void suffixexp(struct lua_State *L, LexState *ls, FuncState *fs, expdesc *e);
+static void suffixedexp(struct lua_State *L, LexState *ls, FuncState *fs, expdesc *e);
 static void expr(FuncState *fs, expdesc *e);
 static void checknext(struct lua_State *L, LexState *ls, int token);
 static int check(struct lua_State *L, LexState *ls, int token);
@@ -64,12 +64,12 @@ static void open_func(LexState *ls, FuncState *fs)
     fs->pc = 0;
 }
 
-static inline bool test_token(struct lua_State *L, LexState *ls, int token)
+static bool test_token(struct lua_State *L, LexState *ls, int token)
 {
     return ls->t.token == token;
 }
 
-static inline LocVar *getlocvar(FuncState *fs, int n)
+static LocVar *getlocvar(FuncState *fs, int n)
 {
     LexState *ls = fs->ls;
     int idx = ls->dyd->actvar.arr[fs->firstlocal + n];
@@ -81,7 +81,7 @@ static inline LocVar *getlocvar(FuncState *fs, int n)
 static int searchvar(FuncState *fs, TString *name)
 {
     for (int i = fs->nactvars - 1; i >= 0; i--)
-	if eqstr(getlocvar(fs, i)->varname, name)
+	if (eqstr(getlocvar(fs, i)->varname, name))
 	    return i;
 
     return -1;
@@ -91,7 +91,7 @@ static int searchupvalues(FuncState *fs, expdesc *e, TString *n)
 {
     Proto *p = fs->p;
     for (int i = 0; i < fs->nups; i++) {
-	if eqstr(p->upvalues[i].name, n) {
+	if (eqstr(p->upvalues[i].name, n)) {
 	    init_exp(e, VUPVAL, i);
 	    return i;
 	}
@@ -128,7 +128,7 @@ static int singlevaraux(FuncState *fs, expdesc *e, TString *n)
     return reg;
 }
 
-static inline void codestring(FuncState *fs, TString *n, expdesc *e)
+static void codestring(FuncState *fs, TString *n, expdesc *e)
 {
     init_exp(e, VK, luaK_stringK(fs, n));
 }
@@ -238,6 +238,7 @@ static void field(FuncState *fs, struct ConsControl *cc)
 	    listfield(fs, cc);
 	else
 	    recfield(fs, cc);
+
 	break;
 
     case '[':
@@ -336,7 +337,7 @@ static void simpleexp(FuncState *fs, expdesc *e)
 	break;
 
     default:
-	suffixexp(fs->ls->L, fs->ls, fs, e);
+	suffixedexp(fs->ls->L, fs->ls, fs, e);
 	break;
     }
 }
@@ -411,9 +412,9 @@ static int subexpr(FuncState *fs, expdesc *e, int limit)
 	init_exp(&e2, VVOID, 0);
 
 	luaX_next(ls->L, ls);
-	// luaK_infix(fs, binopr, e);
+	luaK_infix(fs, binopr, e);
 	int nextop = subexpr(fs, &e2, priority[binopr].right);
-	// luaK_posfix(fs, binopr, e, &e2);
+	luaK_posfix(fs, binopr, e, &e2);
 
 	binopr = nextop;
     }
@@ -503,7 +504,7 @@ static void checkname(struct lua_State *L, LexState *ls, expdesc *e)
 static void fieldsel(struct lua_State *L, LexState *ls, FuncState *fs, expdesc *e)
 {
     luaX_next(L, ls);
-    // luaK_exp2anyregup(fs, e);
+    luaK_exp2anyregup(fs, e);
 
     check(L, ls, TK_NAME);
 
@@ -526,40 +527,42 @@ static void yindex(struct lua_State *L, FuncState *fs, expdesc *e)
     checknext(L, fs->ls, ']');
 }
 
-static void suffixexp(struct lua_State *L, LexState *ls, FuncState *fs, expdesc *e)
+static void suffixedexp(struct lua_State *L, LexState *ls, FuncState *fs, expdesc *e)
 {
     primaryexp(L, ls, fs, e);
     luaX_next(L, ls);
 
-    switch (ls->t.token) {
-    case '.':
-	fieldsel(L, ls, fs, e);
-	break;
+    for (;;) {
+	switch (ls->t.token) {
+	case '.':
+	    fieldsel(L, ls, fs, e);
+	    break;
 
-    case ':': {
-	expdesc key;
-	luaX_next(L, ls);
-	checkname(L, ls, &key);
-	// luaK_self(fs, e, &key);
-	funcargs(fs, e);
-    }
-	break;
+	case ':': {
+	    expdesc key;
+	    luaX_next(L, ls);
+	    checkname(L, ls, &key);
+	    luaK_self(fs, e, &key);
+	    funcargs(fs, e);
+	}
+	    break;
 
-    case '[': {
-	// luaK_exp2anyregup(fs, e);
-	expdesc key;
-	yindex(L, fs, &key);
-	luaK_indexed(fs, e, &key);
-    }
-	break;
+	case '[': {
+	    luaK_exp2anyregup(fs, e);
+	    expdesc key;
+	    yindex(L, fs, &key);
+	    luaK_indexed(fs, e, &key);
+	}
+	    break;
 
-    case '(':
-	luaK_exp2nextreg(fs, e);
-	funcargs(fs, e);
-	break;
+	case '(':
+	    luaK_exp2nextreg(fs, e);
+	    funcargs(fs, e);
+	    break;
 
-    default:
-	break;
+	default:
+	    return;
+	}
     }
 }
 
@@ -570,13 +573,13 @@ static void adjust_assign(FuncState *fs, int nvars, int nexps, expdesc *e)
     if (VCALL == e->k) {
 	extra++;
 	if (extra < 0) extra = 0;
-	// luaK_setreturns(fs, e, extra);
-	// if (extra > 1) luaK_reserveregs(fs, extra - 1);
+	luaK_setreturns(fs, e, extra);
+	if (extra > 1) luaK_reserveregs(fs, extra - 1);
     } else {
 	if (e->k != VVOID) luaK_exp2nextreg(fs, e);
 	if (extra > 0) {
-	    // luaK_reserveregs(fs, extra);
-	    // luaK_nil(fs, fs->freereg - extra, fs->freereg - 1);
+	    luaK_reserveregs(fs, extra);
+	    luaK_nil(fs, fs->freereg - extra, fs->freereg - 1);
 	}
     }
 
@@ -596,7 +599,7 @@ static void assignment(FuncState *fs, LH_assign *v, int nvars)
     init_exp(&e, VVOID, 0);
     if (fs->ls->t.token == ',') {
 	luaX_next(fs->ls->L, fs->ls);
-	suffixexp(fs->ls->L, fs->ls, fs, &lh.v);
+	suffixedexp(fs->ls->L, fs->ls, fs, &lh.v);
 
 	assignment(fs, &lh, nvars + 1);
     } else if (fs->ls->t.token == '=') {
@@ -607,13 +610,13 @@ static void assignment(FuncState *fs, LH_assign *v, int nvars)
 	luaX_syntaxerror(fs->ls->L, fs->ls, "syntax error");
 
     init_exp(&e, VNONRELOC, fs->freereg - 1);
-    // luaK_storevar(fs, &v->v, &e);
+    luaK_storevar(fs, &v->v, &e);
 }
 
 static void exprstat(struct lua_State *L, LexState *ls, FuncState *fs)
 {
     LH_assign lh;
-    suffixexp(L, ls, fs, &lh.v);
+    suffixedexp(L, ls, fs, &lh.v);
 
     if (ls->t.token == '=' || ls->t.token == ',')
 	assignment(fs, &lh, 1);
@@ -653,7 +656,7 @@ static void statlist(struct lua_State *L, LexState *ls, FuncState *fs)
 	statement(L, ls, fs);
 }
 
-static inline void close_func(struct lua_State *L, FuncState *fs)
+static void close_func(struct lua_State *L, FuncState *fs)
 {
     luaK_ret(fs, 0, 0);
 }
@@ -677,7 +680,7 @@ static void test_lexer(struct lua_State *L, LexState *ls)
 
     while (token != TK_EOS) {
 	if (FIRST_REVERSED <= token && token <= TK_FUNCTION)
-	    fprintf(stderr, "REVERSED: %s\n", luaX_tokens[token - FIRST_REVERSED]);
+	    printf("REVERSED: %s\n", luaX_tokens[token - FIRST_REVERSED]);
 	else {
 	    switch (token) {
 	    case TK_STRING:
