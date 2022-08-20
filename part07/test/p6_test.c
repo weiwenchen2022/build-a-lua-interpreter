@@ -1,0 +1,10 @@
+#include "p6_test.h"
+#include "../clib/luaaux.h"
+
+void p6_test_main(void)
+{
+    struct lua_State *L = luaL_newstate();
+    luaL_openlibs(L);
+
+    luaL_loadfile(L, "./scripts/part06_test.lua");
+}
